@@ -1,0 +1,72 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Os assets web e o subprojeto de plugins Cordova são gerados, não
+      # versionados (ver android/.gitignore), então precisam ser recriados
+      # a cada build.
+      - name: Sincronizar projeto Android
+        run: npx cap sync android
+
+      - name: Compilar APK assinado
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Localizar o APK
+        id: apk
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name '*.apk' | head -1)
+          echo "Encontrado: $APK"
+          cp "$APK" askesis-zettel.apk
+          echo "path=askesis-zettel.apk" >> "$GITHUB_OUTPUT"
+
+      # Sobe como artefato antes de publicar: se a criação da release
+      # falhar, o APK continua recuperável pela aba Actions.
+      - name: Guardar como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: askesis-zettel-apk
+          path: askesis-zettel.apk
+
+      - name: Publicar em Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v1.49.${{ github.run_number }}"
+          gh release create "$TAG" askesis-zettel.apk \
+            --title "Askesis-Zettel $TAG" \
+            --notes "APK nativo gerado a partir de ${{ github.sha }}.
+
+          Baixe \`askesis-zettel.apk\` abaixo e instale no aparelho (será preciso permitir a instalação de fontes desconhecidas na primeira vez)." \
+            --latest

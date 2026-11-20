@@ -1,0 +1,11 @@
+{
+  "appId": "org.askesis.zettel",
+  "appName": "Askesis-Zettel",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
