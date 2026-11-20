@@ -472,12 +472,7 @@ public class AskesisFsPlugin extends Plugin {
                     // O Paged.js chama window.print() quando termina de paginar.
                     // O shim em JS redireciona essa chamada para cá, o que nos dá
                     // o momento exato em que o documento está pronto.
-                    wv.addJavascriptInterface(new Object() {
-                        @JavascriptInterface
-                        public void ready() {
-                            activity.runOnUiThread(fire);
-                        }
-                    }, "AndroidPrintBridge");
+                    wv.addJavascriptInterface(new PrintBridge(activity, fire), "AndroidPrintBridge");
 
                     wv.setWebViewClient(new WebViewClient() {
                         @Override
@@ -501,5 +496,27 @@ public class AskesisFsPlugin extends Plugin {
     /** Caixinha mutável: variáveis capturadas por classes anônimas precisam ser finais. */
     private static class PrintState {
         boolean printed = false;
+    }
+
+    /**
+     * Objeto exposto ao JavaScript da página de impressão.
+     *
+     * Classe nomeada de propósito: addJavascriptInterface localiza o método por
+     * reflexão, e um tipo nomeado e público é mais previsível do que uma classe
+     * anônima — sobretudo se um dia a minificação for ligada.
+     */
+    public static class PrintBridge {
+        private final Activity activity;
+        private final Runnable onReady;
+
+        PrintBridge(Activity activity, Runnable onReady) {
+            this.activity = activity;
+            this.onReady = onReady;
+        }
+
+        @JavascriptInterface
+        public void ready() {
+            activity.runOnUiThread(onReady);
+        }
     }
 }
